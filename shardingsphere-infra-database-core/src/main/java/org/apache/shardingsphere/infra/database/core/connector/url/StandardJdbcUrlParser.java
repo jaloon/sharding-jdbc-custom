@@ -60,16 +60,21 @@ public final class StandardJdbcUrlParser {
         ShardingSpherePreconditions.checkNotNull(authority, () -> new UnrecognizedDatabaseURLException(jdbcUrl, CONNECTION_URL_PATTERN.pattern().replaceAll("%", "%%")));
         return new JdbcUrl(parseHostname(authority), parsePort(authority), matcher.group(PATH_GROUP_KEY), parseQueryProperties(matcher.group(QUERY_GROUP_KEY)));
     }
-    
+
     private String parseHostname(final String authority) {
-        return authority.contains(":") ? authority.split(":")[0] : authority;
+        int index = authority.lastIndexOf(':');
+        if (index < 0) {
+            return authority;
+        }
+        return authority.substring(0, index);
     }
-    
+
     private int parsePort(final String authority) {
-        if (!authority.contains(":")) {
+        int index = authority.lastIndexOf(':');
+        if (index < 0) {
             return -1;
         }
-        String port = authority.split(":")[1];
+        String port = authority.substring(index + 1);
         if (port.contains(",")) {
             port = port.split(",")[0];
         }
