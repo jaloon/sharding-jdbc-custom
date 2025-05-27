@@ -18,6 +18,7 @@
 package org.apache.shardingsphere.infra.executor.sql.execute.engine.driver.jdbc;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.shardingsphere.infra.annotation.HighFrequencyInvocation;
 import org.apache.shardingsphere.infra.database.core.connector.ConnectionProperties;
 import org.apache.shardingsphere.infra.database.core.type.DatabaseType;
@@ -43,6 +44,7 @@ import java.util.Optional;
  *
  * @param <T> class type of return value
  */
+@Slf4j
 @HighFrequencyInvocation
 @RequiredArgsConstructor
 public abstract class JDBCExecutorCallback<T> implements ExecutorCallback<JDBCExecutionUnit, T> {
@@ -88,14 +90,23 @@ public abstract class JDBCExecutorCallback<T> implements ExecutorCallback<JDBCEx
         DatabaseType storageType = storageUnit.getStorageType();
         ConnectionProperties connectionProps = storageUnit.getConnectionProperties();
         SQLExecutionHook sqlExecutionHook = new SPISQLExecutionHook();
+        SQLUnit sqlUnit = jdbcExecutionUnit.getExecutionUnit().getSqlUnit();
+        String sql = sqlUnit.getSql();
+        Statement statement = jdbcExecutionUnit.getStorageResource();
         try {
-            SQLUnit sqlUnit = jdbcExecutionUnit.getExecutionUnit().getSqlUnit();
-            sqlExecutionHook.start(dataSourceName, sqlUnit.getSql(), sqlUnit.getParameters(), connectionProps, isTrunkThread);
-            T result = executeSQL(sqlUnit.getSql(), jdbcExecutionUnit.getStorageResource(), jdbcExecutionUnit.getConnectionMode(), storageType);
+            sqlExecutionHook.start(dataSourceName, sql, sqlUnit.getParameters(), connectionProps, isTrunkThread);
+            T result = executeSQL(sql, statement, jdbcExecutionUnit.getConnectionMode(), storageType);
             sqlExecutionHook.finishSuccess();
             processEngine.completeSQLUnitExecution(jdbcExecutionUnit, processId);
+            // log.info("[{}({})]Exec route sql unit success, sql: {}\n\tstmt: {}", storageType.getType(), dsName, sql, statement);
             return result;
-        } catch (final SQLException ex) {
+        } catch (final SQLException | RuntimeException | Error e) {
+            // [Custom Modification]: 增加路由单元sql执行错误日志，便于排查具体执行哪个数据源的哪条sql出错
+            log.error("[{}({})]Exec route sql unit error, sql: {}\n\tstmt: {}", storageType.getType(), dataSourceName, sql, statement);
+            if (e instanceof RuntimeException || e instanceof Error) {
+                throw e;
+            }
+            SQLException ex = (SQLException) e;
             if (!storageType.equals(protocolType)) {
                 Optional<T> saneResult = getSaneResult(sqlStatement, ex);
                 if (saneResult.isPresent()) {
