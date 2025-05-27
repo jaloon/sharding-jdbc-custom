@@ -101,7 +101,6 @@ public final class DriverExecutorFacade implements AutoCloseable {
      * @return result set
      * @throws SQLException SQL exception
      */
-    @SuppressWarnings("rawtypes")
     public ResultSet executeQuery(final ShardingSphereDatabase database, final QueryContext queryContext, final Statement statement, final Map<String, Integer> columnLabelAndIndexMap,
                                   final StatementAddCallback addCallback, final StatementReplayCallback replayCallback) throws SQLException {
         SQLAuditEngine.audit(queryContext, connection.getContextManager().getMetaDataContexts().getMetaData().getGlobalRuleMetaData(), database);
@@ -119,7 +118,6 @@ public final class DriverExecutorFacade implements AutoCloseable {
      * @return updated row count
      * @throws SQLException SQL exception
      */
-    @SuppressWarnings("rawtypes")
     public int executeUpdate(final ShardingSphereDatabase database, final QueryContext queryContext,
                              final StatementExecuteUpdateCallback executeUpdateCallback, final StatementAddCallback addCallback, final StatementReplayCallback replayCallback) throws SQLException {
         SQLAuditEngine.audit(queryContext, connection.getContextManager().getMetaDataContexts().getMetaData().getGlobalRuleMetaData(), database);
@@ -137,7 +135,6 @@ public final class DriverExecutorFacade implements AutoCloseable {
      * @return execute result
      * @throws SQLException SQL exception
      */
-    @SuppressWarnings("rawtypes")
     public boolean execute(final ShardingSphereDatabase database, final QueryContext queryContext,
                            final StatementExecuteCallback executeCallback, final StatementAddCallback addCallback, final StatementReplayCallback replayCallback) throws SQLException {
         SQLAuditEngine.audit(queryContext, connection.getContextManager().getMetaDataContexts().getMetaData().getGlobalRuleMetaData(), database);
@@ -156,12 +153,13 @@ public final class DriverExecutorFacade implements AutoCloseable {
      * @param database database
      * @param sqlStatementContext SQL statement context
      * @param statement statement
-     * @param statements statements
+     * @param statements statements with route info
      * @return result set
      * @throws SQLException SQL exception
      */
-    public Optional<ResultSet> getResultSet(final ShardingSphereDatabase database,
-                                            final SQLStatementContext sqlStatementContext, final Statement statement, final List<? extends Statement> statements) throws SQLException {
+    // [Custom Modification]: List<? extends Statement> -> List<JDBCExecutionUnit>
+    public Optional<ResultSet> getResultSet(final ShardingSphereDatabase database, final SQLStatementContext sqlStatementContext,
+                                            final Statement statement, final List<JDBCExecutionUnit> statements) throws SQLException {
         return executeExecutor.getResultSet(database, sqlStatementContext, statement, statements);
     }
     

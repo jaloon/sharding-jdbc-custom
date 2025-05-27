@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Prepared statement executor to process add batch.
@@ -202,15 +203,9 @@ public final class BatchPreparedStatementExecutor {
      *
      * @return statements
      */
-    public List<Statement> getStatements() {
-        List<Statement> result = new LinkedList<>();
-        for (ExecutionGroup<JDBCExecutionUnit> eachGroup : executionGroupContext.getInputGroups()) {
-            for (JDBCExecutionUnit eachUnit : eachGroup.getInputs()) {
-                Statement storageResource = eachUnit.getStorageResource();
-                result.add(storageResource);
-            }
-        }
-        return result;
+    // [Custom Modification]: List<Statement> -> List<JDBCExecutionUnit>
+    public List<JDBCExecutionUnit> getStatements() {
+        return executionGroupContext.getInputGroups().stream().map(ExecutionGroup::getInputs).flatMap(Collection::stream).collect(Collectors.toList());
     }
     
     /**

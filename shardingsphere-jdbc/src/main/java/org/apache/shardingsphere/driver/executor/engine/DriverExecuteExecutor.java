@@ -135,12 +135,13 @@ public final class DriverExecuteExecutor {
      * @param database database
      * @param sqlStatementContext SQL statement context
      * @param statement statement
-     * @param statements statements
+     * @param statements statements with route info
      * @return result set
      * @throws SQLException SQL exception
      */
+    // [Custom Modification]: List<? extends Statement> -> List<JDBCExecutionUnit>
     public Optional<ResultSet> getResultSet(final ShardingSphereDatabase database, final SQLStatementContext sqlStatementContext,
-                                            final Statement statement, final List<? extends Statement> statements) throws SQLException {
+                                            final Statement statement, final List<JDBCExecutionUnit> statements) throws SQLException {
         if (null == executeType) {
             return Optional.empty();
         }

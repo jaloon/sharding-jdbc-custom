@@ -19,7 +19,7 @@ package org.apache.shardingsphere.driver.jdbc.core.statement;
 
 import lombok.AccessLevel;
 import lombok.Getter;
-import org.apache.shardingsphere.driver.executor.callback.add.StatementAddCallback;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.shardingsphere.driver.executor.engine.batch.preparedstatement.DriverExecuteBatchExecutor;
 import org.apache.shardingsphere.driver.executor.engine.facade.DriverExecutorFacade;
 import org.apache.shardingsphere.driver.jdbc.adapter.AbstractPreparedStatementAdapter;
@@ -39,6 +39,7 @@ import org.apache.shardingsphere.infra.database.core.spi.DatabaseTypedSPILoader;
 import org.apache.shardingsphere.infra.exception.core.ShardingSpherePreconditions;
 import org.apache.shardingsphere.infra.exception.dialect.SQLExceptionTransformEngine;
 import org.apache.shardingsphere.infra.exception.kernel.syntax.EmptySQLException;
+import org.apache.shardingsphere.infra.executor.sql.execute.engine.driver.jdbc.JDBCExecutionUnit;
 import org.apache.shardingsphere.infra.executor.sql.prepare.driver.jdbc.JDBCDriverType;
 import org.apache.shardingsphere.infra.executor.sql.prepare.driver.jdbc.StatementOption;
 import org.apache.shardingsphere.infra.hint.HintManager;
@@ -57,7 +58,7 @@ import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -65,10 +66,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * ShardingSphere prepared statement.
  */
+@Slf4j
 @HighFrequencyInvocation
 public final class ShardingSpherePreparedStatement extends AbstractPreparedStatementAdapter {
     
@@ -96,8 +99,8 @@ public final class ShardingSpherePreparedStatement extends AbstractPreparedState
     private final DriverExecutorFacade driverExecutorFacade;
     
     private final DriverExecuteBatchExecutor executeBatchExecutor;
-    
-    private final List<PreparedStatement> statements = new ArrayList<>();
+    // [Custom Modification]: PreparedStatement -> JDBCExecutionUnit
+    private final List<JDBCExecutionUnit> statements = new ArrayList<>();
     
     private final List<List<Object>> parameterSets = new ArrayList<>();
     
@@ -170,27 +173,26 @@ public final class ShardingSpherePreparedStatement extends AbstractPreparedState
         try {
             if (statementsCacheable && !statements.isEmpty()) {
                 resetParameters();
-                return statements.iterator().next().executeQuery();
+                return ((PreparedStatement) statements.iterator().next().getStorageResource()).executeQuery();
             }
             clearPrevious();
             QueryContext queryContext = createQueryContext();
             handleAutoCommit(queryContext.getSqlStatementContext().getSqlStatement());
             findGeneratedKey().ifPresent(optional -> generatedValues.addAll(optional.getGeneratedValues()));
-            currentResultSet =
-                    driverExecutorFacade.executeQuery(usedDatabase, queryContext, this, columnLabelAndIndexMap, (StatementAddCallback<PreparedStatement>) this::addStatements, this::replay);
+            currentResultSet = driverExecutorFacade.executeQuery(usedDatabase, queryContext, this, columnLabelAndIndexMap, this::addStatements, this::replay);
             if (currentResultSet instanceof ShardingSphereResultSet) {
                 columnLabelAndIndexMap = ((ShardingSphereResultSet) currentResultSet).getColumnLabelAndIndexMap();
             }
-            return currentResultSet;
-            // CHECKSTYLE:OFF
         } catch (final RuntimeException | SQLException ex) {
-            // CHECKSTYLE:ON
+            // [Custom Modification]: log and handle exception
+            log.error("ShardingSpherePreparedStatement executeQuery error: " + this, ex);
             handleExceptionInTransaction(connection, metaData);
-            throw SQLExceptionTransformEngine.toSQLException(ex, usedDatabase.getProtocolType());
+            currentResultSet = handleExceptionForNoDbRouteInfo(ex, usedDatabase.getProtocolType());
         } finally {
             executeBatchExecutor.clear();
             clearParameters();
         }
+        return currentResultSet;
     }
     
     private void handleAutoCommit(final SQLStatement sqlStatement) throws SQLException {
@@ -199,7 +201,7 @@ public final class ShardingSpherePreparedStatement extends AbstractPreparedState
         }
     }
     
-    private void addStatements(final Collection<PreparedStatement> statements, final Collection<List<Object>> parameterSets) {
+    private void addStatements(final Collection<JDBCExecutionUnit> statements, final Collection<List<Object>> parameterSets) {
         this.statements.addAll(statements);
         this.parameterSets.addAll(parameterSets);
     }
@@ -213,18 +215,18 @@ public final class ShardingSpherePreparedStatement extends AbstractPreparedState
         try {
             if (statementsCacheable && !statements.isEmpty()) {
                 resetParameters();
-                return statements.iterator().next().executeUpdate();
+                return ((PreparedStatement) statements.iterator().next().getStorageResource()).executeUpdate();
             }
             clearPrevious();
             QueryContext queryContext = createQueryContext();
             handleAutoCommit(queryContext.getSqlStatementContext().getSqlStatement());
             int result = driverExecutorFacade.executeUpdate(usedDatabase, queryContext,
-                    (sql, statement) -> ((PreparedStatement) statement).executeUpdate(), (StatementAddCallback<PreparedStatement>) this::addStatements, this::replay);
+                    (sql, statement) -> ((PreparedStatement) statement).executeUpdate(), this::addStatements, this::replay);
             findGeneratedKey().ifPresent(optional -> generatedValues.addAll(optional.getGeneratedValues()));
             return result;
-            // CHECKSTYLE:OFF
         } catch (final RuntimeException | SQLException ex) {
-            // CHECKSTYLE:ON
+            // [Custom Modification]: log and handle exception
+            log.error("ShardingSpherePreparedStatement executeUpdate error: " + this, ex);
             handleExceptionInTransaction(connection, metaData);
             throw SQLExceptionTransformEngine.toSQLException(ex, usedDatabase.getProtocolType());
         } finally {
@@ -237,20 +239,21 @@ public final class ShardingSpherePreparedStatement extends AbstractPreparedState
         try {
             if (statementsCacheable && !statements.isEmpty()) {
                 resetParameters();
-                return statements.iterator().next().execute();
+                return ((PreparedStatement) statements.iterator().next().getStorageResource()).execute();
             }
             clearPrevious();
             QueryContext queryContext = createQueryContext();
             handleAutoCommit(queryContext.getSqlStatementContext().getSqlStatement());
-            boolean result = driverExecutorFacade.execute(usedDatabase, queryContext, (sql, statement) -> ((PreparedStatement) statement).execute(),
-                    (StatementAddCallback<PreparedStatement>) this::addStatements, this::replay);
+            boolean result = driverExecutorFacade.execute(usedDatabase, queryContext,
+                    (sql, statement) -> ((PreparedStatement) statement).execute(), this::addStatements, this::replay);
             findGeneratedKey().ifPresent(optional -> generatedValues.addAll(optional.getGeneratedValues()));
             return result;
-            // CHECKSTYLE:OFF
         } catch (final RuntimeException | SQLException ex) {
-            // CHECKSTYLE:ON
+            // [Custom Modification]: log and handle exception
+            log.error("ShardingSpherePreparedStatement execute error: " + this, ex);
             handleExceptionInTransaction(connection, metaData);
-            throw SQLExceptionTransformEngine.toSQLException(ex, usedDatabase.getProtocolType());
+            currentResultSet = handleExceptionForNoDbRouteInfo(ex, usedDatabase.getProtocolType());
+            return true;
         } finally {
             clearBatch();
         }
@@ -278,14 +281,14 @@ public final class ShardingSpherePreparedStatement extends AbstractPreparedState
     
     private void replay() throws SQLException {
         replaySetParameter(statements, parameterSets);
-        for (Statement each : statements) {
-            getMethodInvocationRecorder().replay(each);
+        for (JDBCExecutionUnit each : statements) {
+            getMethodInvocationRecorder().replay(each.getStorageResource());
         }
     }
     
-    private void replaySetParameter(final List<PreparedStatement> statements, final List<List<Object>> parameterSets) throws SQLException {
+    private void replaySetParameter(final List<JDBCExecutionUnit> statements, final List<List<Object>> parameterSets) throws SQLException {
         for (int i = 0; i < statements.size(); i++) {
-            replaySetParameter(statements.get(i), parameterSets.get(i));
+            replaySetParameter((PreparedStatement) statements.get(i).getStorageResource(), parameterSets.get(i));
         }
     }
     
@@ -309,8 +312,8 @@ public final class ShardingSpherePreparedStatement extends AbstractPreparedState
         if (generatedKey.isPresent() && statementOption.isReturnGeneratedKeys() && !generatedValues.isEmpty()) {
             return new GeneratedKeysResultSet(getGeneratedKeysColumnName(generatedKey.get().getColumnName()), generatedValues.iterator(), this);
         }
-        for (PreparedStatement each : statements) {
-            ResultSet resultSet = each.getGeneratedKeys();
+        for (JDBCExecutionUnit each : statements) {
+            ResultSet resultSet = each.getStorageResource().getGeneratedKeys();
             while (resultSet.next()) {
                 generatedValues.add((Comparable<?>) resultSet.getObject(1));
             }
@@ -337,15 +340,14 @@ public final class ShardingSpherePreparedStatement extends AbstractPreparedState
     public int[] executeBatch() throws SQLException {
         try {
             return executeBatchExecutor.executeBatch(usedDatabase, sqlStatementContext, generatedValues, statementOption,
-                    (StatementAddCallback<PreparedStatement>) (statements, parameterSets) -> this.statements.addAll(statements),
-                    this::replaySetParameter,
+                    (statements, parameterSets) -> this.statements.addAll(statements),this::replaySetParameter,
                     () -> {
                         currentBatchGeneratedKeysResultSet = getGeneratedKeys();
                         statements.clear();
                     });
-            // CHECKSTYLE:OFF
         } catch (final RuntimeException ex) {
-            // CHECKSTYLE:ON
+            // [Custom Modification]: log and handle exception
+            log.error("ShardingSpherePreparedStatement executeBatch error: " + this, ex);
             handleExceptionInTransaction(connection, metaData);
             throw SQLExceptionTransformEngine.toSQLException(ex, usedDatabase.getProtocolType());
         } finally {
@@ -392,11 +394,35 @@ public final class ShardingSpherePreparedStatement extends AbstractPreparedState
     
     @Override
     public Collection<PreparedStatement> getRoutedStatements() {
-        return statements;
+        return statements.stream().map(JDBCExecutionUnit::getStorageResource).map(statement -> (PreparedStatement) statement).collect(Collectors.toList());
     }
     
     @Override
     protected void closeExecutor() throws SQLException {
         driverExecutorFacade.close();
+    }
+
+    // [Custom Modification]: Override toString method
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("ShardingPreparedStatement@");
+        sb.append(Integer.toHexString(hashCode())).append(": ").append(this.sql).append(" ::: [");
+        List<Object> parameters = getParameters();
+        for (int i = 0, len = parameters.size(); i < len; i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            Object parameter = parameters.get(i);
+            if (parameter == null) {
+                sb.append("<NULL>");
+            } else if (parameter instanceof Timestamp) {
+                sb.append(parameter).append("(Timestamp)");
+            } else if (parameter instanceof java.util.Date) {
+                sb.append(new Timestamp(((java.util.Date) parameter).getTime())).append("(Timestamp)");
+            } else {
+                sb.append(parameter).append('(').append(parameter.getClass().getSimpleName()).append(')');
+            }
+        }
+        return sb.append(']').toString();
     }
 }

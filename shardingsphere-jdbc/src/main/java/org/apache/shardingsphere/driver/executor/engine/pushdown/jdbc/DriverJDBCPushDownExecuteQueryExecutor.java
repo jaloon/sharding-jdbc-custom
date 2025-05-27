@@ -88,7 +88,6 @@ public final class DriverJDBCPushDownExecuteQueryExecutor {
      * @return result set
      * @throws SQLException SQL exception
      */
-    @SuppressWarnings("rawtypes")
     public ResultSet executeQuery(final ShardingSphereDatabase database, final QueryContext queryContext,
                                   final DriverExecutionPrepareEngine<JDBCExecutionUnit, Connection> prepareEngine, final Statement statement,
                                   final Map<String, Integer> columnLabelAndIndexMap,
@@ -97,7 +96,6 @@ public final class DriverJDBCPushDownExecuteQueryExecutor {
         return new ShardingSphereResultSetFactory(connectionContext, metaData, props, statements).newInstance(database, queryContext, queryResults, statement, columnLabelAndIndexMap);
     }
     
-    @SuppressWarnings({"rawtypes", "unchecked"})
     private List<QueryResult> getQueryResults(final ShardingSphereDatabase database, final QueryContext queryContext, final DriverExecutionPrepareEngine<JDBCExecutionUnit, Connection> prepareEngine,
                                               final StatementAddCallback addCallback, final StatementReplayCallback replayCallback) throws SQLException {
         statements.clear();
@@ -107,7 +105,8 @@ public final class DriverJDBCPushDownExecuteQueryExecutor {
         for (ExecutionGroup<JDBCExecutionUnit> each : executionGroupContext.getInputGroups()) {
             Collection<Statement> statements = getStatements(each);
             this.statements.addAll(statements);
-            addCallback.add(statements, JDBCDriverType.PREPARED_STATEMENT.equals(prepareEngine.getType()) ? getParameterSets(each) : Collections.emptyList());
+            // [Custom Modification]: statements -> each.getInputs()
+            addCallback.add(each.getInputs(), JDBCDriverType.PREPARED_STATEMENT.equals(prepareEngine.getType()) ? getParameterSets(each) : Collections.emptyList());
         }
         replayCallback.replay();
         ProcessEngine processEngine = new ProcessEngine();

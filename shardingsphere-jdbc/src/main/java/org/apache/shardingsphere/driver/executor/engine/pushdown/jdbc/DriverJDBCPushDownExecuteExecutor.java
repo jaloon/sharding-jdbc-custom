@@ -24,6 +24,7 @@ import org.apache.shardingsphere.driver.executor.callback.execute.StatementExecu
 import org.apache.shardingsphere.driver.executor.callback.replay.StatementReplayCallback;
 import org.apache.shardingsphere.driver.executor.engine.transaction.DriverTransactionalExecutor;
 import org.apache.shardingsphere.driver.jdbc.core.connection.ShardingSphereConnection;
+import org.apache.shardingsphere.driver.jdbc.core.resultset.QueryResultWrapper;
 import org.apache.shardingsphere.driver.jdbc.core.resultset.ShardingSphereResultSet;
 import org.apache.shardingsphere.infra.binder.context.statement.SQLStatementContext;
 import org.apache.shardingsphere.infra.binder.context.statement.dml.SelectStatementContext;
@@ -83,20 +84,19 @@ public final class DriverJDBCPushDownExecuteExecutor {
      * @return execute result
      * @throws SQLException SQL exception
      */
-    @SuppressWarnings("rawtypes")
     public boolean execute(final ShardingSphereDatabase database, final ExecutionContext executionContext, final DriverExecutionPrepareEngine<JDBCExecutionUnit, Connection> prepareEngine,
                            final StatementExecuteCallback executeCallback, final StatementAddCallback addCallback, final StatementReplayCallback replayCallback) throws SQLException {
         return new DriverTransactionalExecutor(connection).execute(
                 database, executionContext, () -> doExecute(database, executionContext, prepareEngine, executeCallback, addCallback, replayCallback));
     }
     
-    @SuppressWarnings({"rawtypes", "unchecked"})
     private boolean doExecute(final ShardingSphereDatabase database, final ExecutionContext executionContext, final DriverExecutionPrepareEngine<JDBCExecutionUnit, Connection> prepareEngine,
                               final StatementExecuteCallback executeCallback, final StatementAddCallback addCallback, final StatementReplayCallback replayCallback) throws SQLException {
         ExecutionGroupContext<JDBCExecutionUnit> executionGroupContext = prepareEngine.prepare(database.getName(), executionContext.getRouteContext(), executionContext.getExecutionUnits(),
                 new ExecutionGroupReportContext(connection.getProcessId(), database.getName(), connection.getDatabaseConnectionManager().getConnectionContext().getGrantee()));
         for (ExecutionGroup<JDBCExecutionUnit> each : executionGroupContext.getInputGroups()) {
-            addCallback.add(getStatements(each), JDBCDriverType.PREPARED_STATEMENT.equals(prepareEngine.getType()) ? getParameterSets(each) : Collections.emptyList());
+            // [Custom Modification]: getStatements(each) -> each.getInputs()
+            addCallback.add(each.getInputs(), JDBCDriverType.PREPARED_STATEMENT.equals(prepareEngine.getType()) ? getParameterSets(each) : Collections.emptyList());
         }
         replayCallback.replay();
         ProcessEngine processEngine = new ProcessEngine();
@@ -116,14 +116,15 @@ public final class DriverJDBCPushDownExecuteExecutor {
             processEngine.completeSQLExecution(executionGroupContext.getReportContext().getProcessId());
         }
     }
-    
-    private Collection<Statement> getStatements(final ExecutionGroup<JDBCExecutionUnit> executionGroup) {
-        Collection<Statement> result = new LinkedList<>();
-        for (JDBCExecutionUnit each : executionGroup.getInputs()) {
-            result.add(each.getStorageResource());
-        }
-        return result;
-    }
+
+    // [Custom Modification]: remove getStatements method
+    // private Collection<Statement> getStatements(final ExecutionGroup<JDBCExecutionUnit> executionGroup) {
+    //     Collection<Statement> result = new LinkedList<>();
+    //     for (JDBCExecutionUnit each : executionGroup.getInputs()) {
+    //         result.add(each.getStorageResource());
+    //     }
+    //     return result;
+    // }
     
     private Collection<List<Object>> getParameterSets(final ExecutionGroup<JDBCExecutionUnit> executionGroup) {
         Collection<List<Object>> result = new LinkedList<>();
@@ -144,43 +145,55 @@ public final class DriverJDBCPushDownExecuteExecutor {
      * @param database database
      * @param sqlStatementContext SQL statement context
      * @param statement statement
-     * @param statements statements
+     * @param statements statements with route info
      * @return result set
      * @throws SQLException SQL exception
      */
+    // [Custom Modification]: List<? extends Statement> -> List<JDBCExecutionUnit>
     public Optional<ResultSet> getResultSet(final ShardingSphereDatabase database, final SQLStatementContext sqlStatementContext,
-                                            final Statement statement, final List<? extends Statement> statements) throws SQLException {
+                                            final Statement statement, final List<JDBCExecutionUnit> statements) throws SQLException {
         if (sqlStatementContext instanceof SelectStatementContext || sqlStatementContext.getSqlStatement() instanceof DALStatement) {
-            List<ResultSet> resultSets = getResultSets(statements);
+            List<ResultSet> resultSets = new ArrayList<>(statements.size());
+            List<QueryResult> queryResults = new ArrayList<>(statements.size());
+            for (JDBCExecutionUnit each : statements) {
+                ResultSet resultSet = each.getStorageResource().getResultSet();
+                if (null != resultSet) {
+                    resultSets.add(resultSet);
+                    QueryResult queryResult = new JDBCStreamQueryResult(resultSet);
+                    // [Custom Modification]: QueryResult 增加路由信息（数据源和真实表）
+                    queryResults.add(QueryResultWrapper.wrap(queryResult).withRouteUnit(each.getExecutionUnit()));
+                }
+            }
             if (resultSets.isEmpty()) {
                 return Optional.empty();
             }
-            List<QueryResult> queryResults = getQueryResults(resultSets);
             MergedResult mergedResult = new MergeEngine(metaData, database, metaData.getProps(), connection.getDatabaseConnectionManager().getConnectionContext())
                     .merge(queryResults, sqlStatementContext);
             return Optional.of(new ShardingSphereResultSet(resultSets, mergedResult, statement, sqlStatementContext));
         }
         return Optional.empty();
     }
-    
-    @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
-    private List<ResultSet> getResultSets(final List<? extends Statement> statements) throws SQLException {
-        List<ResultSet> result = new ArrayList<>(statements.size());
-        for (Statement each : statements) {
-            if (null != each.getResultSet()) {
-                result.add(each.getResultSet());
-            }
-        }
-        return result;
-    }
-    
-    private List<QueryResult> getQueryResults(final List<ResultSet> resultSets) throws SQLException {
-        List<QueryResult> result = new ArrayList<>(resultSets.size());
-        for (ResultSet each : resultSets) {
-            if (null != each) {
-                result.add(new JDBCStreamQueryResult(each));
-            }
-        }
-        return result;
-    }
+
+    // [Custom Modification]: remove getResultSets method
+    // @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
+    // private List<ResultSet> getResultSets(final List<? extends Statement> statements) throws SQLException {
+    //     List<ResultSet> result = new ArrayList<>(statements.size());
+    //     for (Statement each : statements) {
+    //         if (null != each.getResultSet()) {
+    //             result.add(each.getResultSet());
+    //         }
+    //     }
+    //     return result;
+    // }
+
+    // [Custom Modification]: remove getQueryResults method
+    // private List<QueryResult> getQueryResults(final List<ResultSet> resultSets) throws SQLException {
+    //     List<QueryResult> result = new ArrayList<>(resultSets.size());
+    //     for (ResultSet each : resultSets) {
+    //         if (null != each) {
+    //             result.add(new JDBCStreamQueryResult(each));
+    //         }
+    //     }
+    //     return result;
+    // }
 }

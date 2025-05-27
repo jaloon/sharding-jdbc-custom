@@ -99,7 +99,8 @@ public final class DriverJDBCPushDownExecuteUpdateExecutor {
         ExecutionGroupContext<JDBCExecutionUnit> executionGroupContext = prepareEngine.prepare(database.getName(), executionContext.getRouteContext(), executionContext.getExecutionUnits(),
                 new ExecutionGroupReportContext(processId, database.getName(), connection.getDatabaseConnectionManager().getConnectionContext().getGrantee()));
         for (ExecutionGroup<JDBCExecutionUnit> each : executionGroupContext.getInputGroups()) {
-            addCallback.add(getStatements(each), JDBCDriverType.PREPARED_STATEMENT.equals(prepareEngine.getType()) ? getParameterSets(each) : Collections.emptyList());
+            // [Custom Modification]: getStatements(each) -> each.getInputs()
+            addCallback.add(each.getInputs(), JDBCDriverType.PREPARED_STATEMENT.equals(prepareEngine.getType()) ? getParameterSets(each) : Collections.emptyList());
         }
         replayCallback.replay();
         ProcessEngine processEngine = new ProcessEngine();
@@ -120,14 +121,15 @@ public final class DriverJDBCPushDownExecuteUpdateExecutor {
             processEngine.completeSQLExecution(executionGroupContext.getReportContext().getProcessId());
         }
     }
-    
-    private Collection<Statement> getStatements(final ExecutionGroup<JDBCExecutionUnit> executionGroup) {
-        Collection<Statement> result = new LinkedList<>();
-        for (JDBCExecutionUnit each : executionGroup.getInputs()) {
-            result.add(each.getStorageResource());
-        }
-        return result;
-    }
+
+    // [Custom Modification]: remove getStatements method
+    // private Collection<Statement> getStatements(final ExecutionGroup<JDBCExecutionUnit> executionGroup) {
+    //     Collection<Statement> result = new LinkedList<>();
+    //     for (JDBCExecutionUnit each : executionGroup.getInputs()) {
+    //         result.add(each.getStorageResource());
+    //     }
+    //     return result;
+    // }
     
     private Collection<List<Object>> getParameterSets(final ExecutionGroup<JDBCExecutionUnit> executionGroup) {
         Collection<List<Object>> result = new LinkedList<>();

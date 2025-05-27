@@ -21,17 +21,18 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import org.apache.shardingsphere.driver.jdbc.adapter.executor.ForceExecuteTemplate;
 import org.apache.shardingsphere.driver.jdbc.core.connection.ShardingSphereConnection;
+import org.apache.shardingsphere.driver.jdbc.core.resultset.EmptyResultSet;
 import org.apache.shardingsphere.driver.jdbc.core.statement.StatementManager;
 import org.apache.shardingsphere.infra.database.core.metadata.database.DialectDatabaseMetaData;
 import org.apache.shardingsphere.infra.database.core.type.DatabaseType;
 import org.apache.shardingsphere.infra.database.core.type.DatabaseTypeRegistry;
 import org.apache.shardingsphere.infra.exception.core.ShardingSpherePreconditions;
+import org.apache.shardingsphere.infra.exception.dialect.SQLExceptionTransformEngine;
 import org.apache.shardingsphere.infra.metadata.ShardingSphereMetaData;
+import org.apache.shardingsphere.sharding.exception.algorithm.MismatchedShardingDataSourceRouteInfoException;
+import org.apache.shardingsphere.sharding.exception.algorithm.NoShardingDatabaseRouteInfoException;
 
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLWarning;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.Collection;
 
 /**
@@ -61,6 +62,14 @@ public abstract class AbstractStatementAdapter extends WrapperAdapter implements
                 connection.getDatabaseConnectionManager().getConnectionContext().getTransactionContext().setExceptionOccur(true);
             }
         }
+    }
+
+    // [Custom Modification]: Add method to handle exception for no db route info
+    protected ResultSet handleExceptionForNoDbRouteInfo(Exception ex, DatabaseType databaseType) throws SQLException {
+        if (ex instanceof NoShardingDatabaseRouteInfoException || ex instanceof MismatchedShardingDataSourceRouteInfoException) {
+            return EmptyResultSet.getInstance();
+        }
+        throw SQLExceptionTransformEngine.toSQLException(ex, databaseType);
     }
     
     protected abstract boolean isAccumulate();

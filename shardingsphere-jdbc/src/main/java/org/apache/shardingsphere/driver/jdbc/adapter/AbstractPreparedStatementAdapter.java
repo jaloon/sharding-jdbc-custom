@@ -19,6 +19,7 @@ package org.apache.shardingsphere.driver.jdbc.adapter;
 
 import com.google.common.io.CharStreams;
 import lombok.Getter;
+import org.apache.shardingsphere.driver.jdbc.adapter.executor.ForceExecuteCallback;
 import org.apache.shardingsphere.driver.jdbc.unsupported.AbstractUnsupportedOperationPreparedStatement;
 import org.apache.shardingsphere.infra.exception.generic.UnknownSQLException;
 
@@ -45,8 +46,8 @@ import java.util.List;
  * Adapter for {@code PreparedStatement}.
  */
 public abstract class AbstractPreparedStatementAdapter extends AbstractUnsupportedOperationPreparedStatement {
-    
-    private final List<PreparedStatementInvocationReplayer> setParameterMethodInvocations = new LinkedList<>();
+    // [Custom Modification]: PreparedStatementInvocationReplayer -> ForceExecuteCallback<PreparedStatement>
+    private final List<ForceExecuteCallback<PreparedStatement>> setParameterMethodInvocations = new LinkedList<>();
     
     @Getter
     private final List<Object> parameters = new ArrayList<>();
@@ -277,8 +278,8 @@ public abstract class AbstractPreparedStatementAdapter extends AbstractUnsupport
     protected final void replaySetParameter(final PreparedStatement preparedStatement, final List<Object> params) throws SQLException {
         setParameterMethodInvocations.clear();
         addParameters(params);
-        for (PreparedStatementInvocationReplayer each : setParameterMethodInvocations) {
-            each.replayOn(preparedStatement);
+        for (ForceExecuteCallback<PreparedStatement> each : setParameterMethodInvocations) {
+            each.execute(preparedStatement);
         }
     }
     
@@ -295,10 +296,11 @@ public abstract class AbstractPreparedStatementAdapter extends AbstractUnsupport
         parameters.clear();
         setParameterMethodInvocations.clear();
     }
-    
-    @FunctionalInterface
-    private interface PreparedStatementInvocationReplayer {
-        
-        void replayOn(PreparedStatement preparedStatement) throws SQLException;
-    }
+
+    // [Custom Modification]: Remove PreparedStatementInvocationReplayer interface
+    // @FunctionalInterface
+    // private interface PreparedStatementInvocationReplayer {
+    //
+    //     void replayOn(PreparedStatement preparedStatement) throws SQLException;
+    // }
 }

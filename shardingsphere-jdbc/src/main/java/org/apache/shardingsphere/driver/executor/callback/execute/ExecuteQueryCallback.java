@@ -17,8 +17,10 @@
 
 package org.apache.shardingsphere.driver.executor.callback.execute;
 
+import org.apache.shardingsphere.driver.jdbc.core.resultset.QueryResultWrapper;
 import org.apache.shardingsphere.infra.database.core.type.DatabaseType;
 import org.apache.shardingsphere.infra.executor.sql.execute.engine.ConnectionMode;
+import org.apache.shardingsphere.infra.executor.sql.execute.engine.driver.jdbc.JDBCExecutionUnit;
 import org.apache.shardingsphere.infra.executor.sql.execute.engine.driver.jdbc.JDBCExecutorCallback;
 import org.apache.shardingsphere.infra.executor.sql.execute.result.query.QueryResult;
 import org.apache.shardingsphere.infra.executor.sql.execute.result.query.impl.driver.jdbc.type.memory.JDBCMemoryQueryResult;
@@ -29,6 +31,8 @@ import org.apache.shardingsphere.sql.parser.statement.core.statement.SQLStatemen
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collection;
+import java.util.LinkedList;
 import java.util.Optional;
 
 /**
@@ -39,7 +43,20 @@ public abstract class ExecuteQueryCallback extends JDBCExecutorCallback<QueryRes
     protected ExecuteQueryCallback(final DatabaseType protocolType, final ResourceMetaData resourceMetaData, final SQLStatement sqlStatement, final boolean isExceptionThrown) {
         super(protocolType, resourceMetaData, sqlStatement, isExceptionThrown);
     }
-    
+
+    @Override
+    public Collection<QueryResult> execute(Collection<JDBCExecutionUnit> executionUnits, boolean isTrunkThread, String processId) throws SQLException {
+        Collection<QueryResult> result = new LinkedList<>();
+        for (JDBCExecutionUnit each : executionUnits) {
+            QueryResult executeResult = execute(each, isTrunkThread, processId);
+            if (null != executeResult) {
+                // [Custom Modification]: QueryResult 增加路由信息（数据源和真实表）
+                result.add(QueryResultWrapper.wrap(executeResult).withRouteUnit(each.getExecutionUnit()));
+            }
+        }
+        return result;
+    }
+
     @Override
     protected final QueryResult executeSQL(final String sql, final Statement statement, final ConnectionMode connectionMode, final DatabaseType storageType) throws SQLException {
         ResultSet resultSet = executeQuery(sql, statement);

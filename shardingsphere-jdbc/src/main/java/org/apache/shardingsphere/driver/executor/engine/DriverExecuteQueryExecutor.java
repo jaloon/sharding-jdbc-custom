@@ -77,7 +77,6 @@ public final class DriverExecuteQueryExecutor {
      * @return result set
      * @throws SQLException SQL exception
      */
-    @SuppressWarnings("rawtypes")
     public ResultSet executeQuery(final ShardingSphereDatabase database, final QueryContext queryContext,
                                   final DriverExecutionPrepareEngine<JDBCExecutionUnit, Connection> prepareEngine, final Statement statement, final Map<String, Integer> columnLabelAndIndexMap,
                                   final StatementAddCallback addCallback, final StatementReplayCallback replayCallback) throws SQLException {

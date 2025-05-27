@@ -17,16 +17,17 @@
 
 package org.apache.shardingsphere.driver.executor.callback.add;
 
+import org.apache.shardingsphere.infra.executor.sql.execute.engine.driver.jdbc.JDBCExecutionUnit;
+
 import java.sql.Statement;
 import java.util.Collection;
 import java.util.List;
 
 /**
  * Statement add callback.
- *
- * @param <T> type of statement
  */
-public interface StatementAddCallback<T extends Statement> {
+// [Custom Modification]: Remove generic type
+public interface StatementAddCallback {
     
     /**
      * Add statements and parameter sets.
@@ -34,5 +35,6 @@ public interface StatementAddCallback<T extends Statement> {
      * @param statements statements
      * @param parameterSets parameter sets
      */
-    void add(Collection<T> statements, Collection<List<Object>> parameterSets);
+    // [Custom Modification]: T extends Statement -> JDBCExecutionUnit
+    void add(Collection<JDBCExecutionUnit> statements, Collection<List<Object>> parameterSets);
 }
