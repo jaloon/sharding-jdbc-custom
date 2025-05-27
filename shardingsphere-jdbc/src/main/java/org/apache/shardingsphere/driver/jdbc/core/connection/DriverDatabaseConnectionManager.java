@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.zaxxer.hikari.HikariDataSource;
 import lombok.Getter;
 import org.apache.shardingsphere.driver.jdbc.adapter.executor.ForceExecuteTemplate;
 import org.apache.shardingsphere.driver.jdbc.adapter.invocation.MethodInvocationRecorder;
@@ -40,12 +41,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Savepoint;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -281,9 +277,21 @@ public final class DriverDatabaseConnectionManager implements DatabaseConnection
     }
     
     private String[] getRandomPhysicalDatabaseAndDataSourceName() {
-        Collection<String> cachedPhysicalDataSourceNames = Sets.intersection(dataSourceMap.keySet(), cachedConnections.keySet());
-        Collection<String> databaseAndDatasourceNames = cachedPhysicalDataSourceNames.isEmpty() ? dataSourceMap.keySet() : cachedPhysicalDataSourceNames;
-        return new ArrayList<>(databaseAndDatasourceNames).get(ThreadLocalRandom.current().nextInt(databaseAndDatasourceNames.size())).split("\\.");
+        // [Custom Modification]: 无法连接的数据源不参与随机
+        Set<String> physicalDataSourceNames = dataSourceMap.entrySet().stream().filter(each -> isConnectedDataSource(each.getValue())).map(Map.Entry::getKey).collect(Collectors.toSet());
+        Collection<String> cachedPhysicalDataSourceNames = Sets.intersection(physicalDataSourceNames, cachedConnections.keySet());
+        List<String> databaseAndDatasourceNames = new ArrayList<>(cachedPhysicalDataSourceNames.isEmpty() ? physicalDataSourceNames : cachedPhysicalDataSourceNames);
+        return databaseAndDatasourceNames.get(ThreadLocalRandom.current().nextInt(databaseAndDatasourceNames.size())).split("\\.");
+    }
+
+    private boolean isConnectedDataSource(final DataSource dataSource) {
+        if (dataSource instanceof Connectable) {
+            return ((Connectable) dataSource).isConnected();
+        }
+        if (dataSource instanceof HikariDataSource) {
+            return !((HikariDataSource) dataSource).isClosed();
+        }
+        return true;
     }
     
     /**
