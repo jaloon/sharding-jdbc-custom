@@ -12,6 +12,7 @@
     <modules>
         <module>shardingsphere-jdbc</module>
         <module>shardingsphere-infra-database-core</module>
+        <module>shardingsphere-infra-executor</module>
     </modules>
 
     <properties>
