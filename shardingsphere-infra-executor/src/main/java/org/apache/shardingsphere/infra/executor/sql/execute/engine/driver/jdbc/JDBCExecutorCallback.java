@@ -46,19 +46,21 @@ import java.util.Optional;
 @HighFrequencyInvocation
 @RequiredArgsConstructor
 public abstract class JDBCExecutorCallback<T> implements ExecutorCallback<JDBCExecutionUnit, T> {
-    
-    private final DatabaseType protocolType;
-    
-    private final ResourceMetaData resourceMetaData;
-    
-    private final SQLStatement sqlStatement;
-    
-    private final boolean isExceptionThrown;
-    
-    private final ProcessEngine processEngine = new ProcessEngine();
-    
+    // [Custom Modification]: modify fields access level to protected
+
+    protected final DatabaseType protocolType;
+
+    protected final ResourceMetaData resourceMetaData;
+
+    protected final SQLStatement sqlStatement;
+
+    protected final boolean isExceptionThrown;
+
+    protected final ProcessEngine processEngine = new ProcessEngine();
+
+    // [Custom Modification]: remove final modifier
     @Override
-    public final Collection<T> execute(final Collection<JDBCExecutionUnit> executionUnits, final boolean isTrunkThread, final String processId) throws SQLException {
+    public Collection<T> execute(final Collection<JDBCExecutionUnit> executionUnits, final boolean isTrunkThread, final String processId) throws SQLException {
         // TODO It is better to judge whether need sane result before execute, can avoid exception thrown
         Collection<T> result = new LinkedList<>();
         for (JDBCExecutionUnit each : executionUnits) {
@@ -75,7 +77,8 @@ public abstract class JDBCExecutorCallback<T> implements ExecutorCallback<JDBCEx
      *
      * @see <a href="https://github.com/apache/skywalking/blob/master/docs/en/guides/Java-Plugin-Development-Guide.md#user-content-plugin-development-guide">Plugin Development Guide</a>
      */
-    private T execute(final JDBCExecutionUnit jdbcExecutionUnit, final boolean isTrunkThread, final String processId) throws SQLException {
+    // [Custom Modification]: modify method access level to protected
+    protected T execute(final JDBCExecutionUnit jdbcExecutionUnit, final boolean isTrunkThread, final String processId) throws SQLException {
         SQLExecutorExceptionHandler.setExceptionThrown(isExceptionThrown);
         String dataSourceName = jdbcExecutionUnit.getExecutionUnit().getDataSourceName();
         // TODO use metadata to replace storageUnits to support multiple logic databases
