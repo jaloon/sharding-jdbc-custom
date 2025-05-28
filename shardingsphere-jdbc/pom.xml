@@ -39,6 +39,10 @@
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.shardingsphere</groupId>
+                    <artifactId>shardingsphere-infra-binder</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.shardingsphere</groupId>
                     <artifactId>shardingsphere-infra-executor</artifactId>
                 </exclusion>
             </exclusions>
@@ -47,6 +51,11 @@
         <dependency>
             <groupId>io.github.jaloon</groupId>
             <artifactId>shardingsphere-infra-database-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.jaloon</groupId>
+            <artifactId>shardingsphere-infra-binder</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
