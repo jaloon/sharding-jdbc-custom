@@ -9,7 +9,7 @@
     <packaging>pom</packaging>
     <version>5.5.2</version>
     <name>${project.artifactId}</name>
-    <description>Email(.eml) File Parser with Java Mail API (outlook supported)</description>
+    <description>Apache ShardingSphere JDBC with some customizations</description>
     <url>https://github.com/jaloon/sharding-jdbc-custom</url>
 
     <licenses>
