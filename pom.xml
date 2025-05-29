@@ -8,6 +8,35 @@
     <artifactId>sharding-jdbc-custom</artifactId>
     <packaging>pom</packaging>
     <version>5.5.2</version>
+    <name>${project.artifactId}</name>
+    <description>Email(.eml) File Parser with Java Mail API (outlook supported)</description>
+    <url>https://github.com/jaloon/sharding-jdbc-custom</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>jaloon</id>
+            <name>Jaloon Chen</name>
+            <email>jazurechen@163.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>https://github.com/jaloon/sharding-jdbc-custom.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com:jaloon/sharding-jdbc-custom.git</developerConnection>
+        <url>https://github.com/jaloon/sharding-jdbc-custom</url>
+    </scm>
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/jaloon/sharding-jdbc-custom/issues</url>
+    </issueManagement>
 
     <modules>
         <module>sharding-jdbc-bom</module>
@@ -214,4 +243,70 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <!-- 打包源码 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- javadoc插件 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.11.2</version>
+                <configuration>
+                    <additionalOptions>
+                        <!-- 禁用文档检查，避免构建过程报错 -->
+                        <additionalOption>-Xdoclint:none</additionalOption>
+                    </additionalOptions>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- central发布插件 -->
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.7.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>3.2.7</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                        <configuration>
+                            <keyname>jaloon</keyname>
+                            <passphraseServerId>gpg-passphrase</passphraseServerId>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
