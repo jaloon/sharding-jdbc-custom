@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.github.jaloon</groupId>
         <artifactId>sharding-jdbc-custom</artifactId>
-        <version>5.5.2</version>
+        <version>5.5.2.1</version>
     </parent>
     <artifactId>sharding-jdbc-bom</artifactId>
     <name>${project.artifactId}</name>
@@ -31,12 +31,10 @@
         <dependency>
             <groupId>org.apache.shardingsphere</groupId>
             <artifactId>shardingsphere-global-clock-core</artifactId>
-            <version>${project.parent.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.shardingsphere</groupId>
             <artifactId>shardingsphere-global-clock-tso-provider-local</artifactId>
-            <version>${project.parent.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.shardingsphere</groupId>
