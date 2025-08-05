@@ -18,6 +18,7 @@
 package org.apache.shardingsphere.infra.executor.sql.hook;
 
 import org.apache.shardingsphere.infra.database.core.connector.ConnectionProperties;
+import org.apache.shardingsphere.infra.executor.sql.context.ExecutionUnit;
 
 import java.util.List;
 
@@ -29,13 +30,12 @@ public interface SQLExecutionHook {
     /**
      * Handle when SQL execution started.
      *
-     * @param dataSourceName data source name
-     * @param sql SQL
-     * @param params SQL parameters
+     * @param executionUnit SQL execution unit
      * @param connectionProps connection properties
      * @param isTrunkThread is execution in trunk thread
      */
-    void start(String dataSourceName, String sql, List<Object> params, ConnectionProperties connectionProps, boolean isTrunkThread);
+    // [Custom Modification]: method parameter changed ([String dataSourceName, String sql, List<Object> params] -> ExecutionUnit executionUnit)
+    void start(ExecutionUnit executionUnit, ConnectionProperties connectionProps, boolean isTrunkThread);
     
     /**
      * Handle when SQL execution finished success.

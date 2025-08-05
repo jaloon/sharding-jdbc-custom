@@ -18,10 +18,10 @@
 package org.apache.shardingsphere.infra.executor.sql.hook;
 
 import org.apache.shardingsphere.infra.database.core.connector.ConnectionProperties;
+import org.apache.shardingsphere.infra.executor.sql.context.ExecutionUnit;
 import org.apache.shardingsphere.infra.spi.ShardingSphereServiceLoader;
 
 import java.util.Collection;
-import java.util.List;
 
 /**
  * SQL Execution hook for SPI.
@@ -29,11 +29,12 @@ import java.util.List;
 public final class SPISQLExecutionHook implements SQLExecutionHook {
     
     private final Collection<SQLExecutionHook> sqlExecutionHooks = ShardingSphereServiceLoader.getServiceInstances(SQLExecutionHook.class);
-    
+
+    // [Custom Modification]: method parameter changed ([String dataSourceName, String sql, List<Object> params] -> ExecutionUnit executionUnit)
     @Override
-    public void start(final String dataSourceName, final String sql, final List<Object> params, final ConnectionProperties connectionProps, final boolean isTrunkThread) {
+    public void start(final ExecutionUnit executionUnit, final ConnectionProperties connectionProps, final boolean isTrunkThread) {
         for (SQLExecutionHook each : sqlExecutionHooks) {
-            each.start(dataSourceName, sql, params, connectionProps, isTrunkThread);
+            each.start(executionUnit, connectionProps, isTrunkThread);
         }
     }
     

@@ -23,7 +23,7 @@ import org.apache.shardingsphere.infra.annotation.HighFrequencyInvocation;
 import org.apache.shardingsphere.infra.database.core.connector.ConnectionProperties;
 import org.apache.shardingsphere.infra.database.core.type.DatabaseType;
 import org.apache.shardingsphere.infra.executor.kernel.model.ExecutorCallback;
-import org.apache.shardingsphere.infra.executor.sql.context.SQLUnit;
+import org.apache.shardingsphere.infra.executor.sql.context.ExecutionUnit;
 import org.apache.shardingsphere.infra.executor.sql.execute.engine.ConnectionMode;
 import org.apache.shardingsphere.infra.executor.sql.execute.engine.SQLExecutorExceptionHandler;
 import org.apache.shardingsphere.infra.executor.sql.hook.SPISQLExecutionHook;
@@ -82,7 +82,8 @@ public abstract class JDBCExecutorCallback<T> implements ExecutorCallback<JDBCEx
     // [Custom Modification]: modify method access level to protected
     protected T execute(final JDBCExecutionUnit jdbcExecutionUnit, final boolean isTrunkThread, final String processId) throws SQLException {
         SQLExecutorExceptionHandler.setExceptionThrown(isExceptionThrown);
-        String dataSourceName = jdbcExecutionUnit.getExecutionUnit().getDataSourceName();
+        ExecutionUnit executionUnit = jdbcExecutionUnit.getExecutionUnit();
+        String dataSourceName = executionUnit.getDataSourceName();
         // TODO use metadata to replace storageUnits to support multiple logic databases
         StorageUnit storageUnit = resourceMetaData.getStorageUnits().containsKey(dataSourceName)
                 ? resourceMetaData.getStorageUnits().get(dataSourceName)
@@ -90,11 +91,10 @@ public abstract class JDBCExecutorCallback<T> implements ExecutorCallback<JDBCEx
         DatabaseType storageType = storageUnit.getStorageType();
         ConnectionProperties connectionProps = storageUnit.getConnectionProperties();
         SQLExecutionHook sqlExecutionHook = new SPISQLExecutionHook();
-        SQLUnit sqlUnit = jdbcExecutionUnit.getExecutionUnit().getSqlUnit();
-        String sql = sqlUnit.getSql();
+        String sql = executionUnit.getSqlUnit().getSql();
         Statement statement = jdbcExecutionUnit.getStorageResource();
         try {
-            sqlExecutionHook.start(dataSourceName, sql, sqlUnit.getParameters(), connectionProps, isTrunkThread);
+            sqlExecutionHook.start(executionUnit, connectionProps, isTrunkThread);
             T result = executeSQL(sql, statement, jdbcExecutionUnit.getConnectionMode(), storageType);
             sqlExecutionHook.finishSuccess();
             processEngine.completeSQLUnitExecution(jdbcExecutionUnit, processId);
@@ -102,7 +102,7 @@ public abstract class JDBCExecutorCallback<T> implements ExecutorCallback<JDBCEx
             return result;
         } catch (final SQLException | RuntimeException | Error e) {
             // [Custom Modification]: 增加路由单元sql执行错误日志，便于排查具体执行哪个数据源的哪条sql出错
-            log.error("[{}({})]Exec route sql unit error, sql: {}\n\tstmt: {}", storageType.getType(), dataSourceName, sql, statement);
+            log.error("[{}({})]Exec route sql unit error, sql: {}\n\tstmt: {}\n\tthrows: {}", storageType.getType(), dataSourceName, sql, statement, e.toString());
             if (e instanceof RuntimeException || e instanceof Error) {
                 throw e;
             }
