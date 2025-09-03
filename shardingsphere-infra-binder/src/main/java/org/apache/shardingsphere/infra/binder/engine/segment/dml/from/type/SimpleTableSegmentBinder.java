@@ -90,15 +90,22 @@ public final class SimpleTableSegmentBinder {
         ShardingSphereDatabase database = getAndCheckDatabase(segment, registry, binderContext);
         // Get and check schema
         ShardingSphereSchema schema = getSchemaAndCheckTableExists(segment, registry, binderContext, database);
+        IdentifierValue schemaId = new IdentifierValue(schema.getName());
+        boolean hasDefaultSchema = registry.getDialectDatabaseMetaData().getDefaultSchema().isPresent();
+        IdentifierValue databaseId = hasDefaultSchema ? new IdentifierValue(database.getName()) : schemaId;
         // reset table owner
         if (!segment.getOwner().isPresent() && !PG_CATALOG.equals(schema.getName())) {
             int ownerIndex = segment.getTableName().getStartIndex();
-            segment.setOwner(new OwnerSegment(ownerIndex, ownerIndex, new IdentifierValue(schema.getName())));
+            OwnerSegment owner = new OwnerSegment(ownerIndex, ownerIndex, schemaId);
+            if (hasDefaultSchema) {
+                owner.setOwner(new OwnerSegment(ownerIndex, ownerIndex, databaseId));
+            }
+            segment.setOwner(owner);
         }
         IdentifierValue tableName = segment.getTableName().getIdentifier();
         // ShardingSphereSchema schema = binderContext.getMetaData().getDatabase(databaseName.getValue()).getSchema(schemaName.getValue());
         // checkTableExists(binderContext, schema, schemaName.getValue(), tableName.getValue());
-        TableSegmentBoundInfo boundInfo = new TableSegmentBoundInfo(new IdentifierValue(database.getName()), new IdentifierValue(schema.getName()));
+        TableSegmentBoundInfo boundInfo = new TableSegmentBoundInfo(databaseId, schemaId);
         tableBinderContexts.put(new CaseInsensitiveString(segment.getAliasName().orElseGet(tableName::getValue)),
                 createSimpleTableBinderContext(segment, registry, schema, tableName, boundInfo, binderContext));
         TableNameSegment tableNameSegment = new TableNameSegment(segment.getTableName().getStartIndex(), segment.getTableName().getStopIndex(), tableName);
