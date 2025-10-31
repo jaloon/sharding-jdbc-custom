@@ -7,7 +7,7 @@
     <groupId>io.github.jaloon</groupId>
     <artifactId>sharding-jdbc-custom</artifactId>
     <packaging>pom</packaging>
-    <version>5.5.2.3</version>
+    <version>5.5.2.4</version>
     <name>${project.artifactId}</name>
     <description>Apache ShardingSphere JDBC with some customizations</description>
     <url>https://github.com/jaloon/sharding-jdbc-custom</url>
