@@ -22,6 +22,7 @@ import com.google.common.primitives.Longs;
 import com.google.common.primitives.Shorts;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.shardingsphere.infra.exception.core.ShardingSpherePreconditions;
 import org.apache.shardingsphere.infra.exception.kernel.data.UnsupportedDataTypeConversionException;
 
@@ -42,6 +43,7 @@ import java.util.Date;
 /**
  * Result set utility class.
  */
+@Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class ResultSetUtils {
     
@@ -85,9 +87,16 @@ public final class ResultSetUtils {
         if (String.class.equals(convertType)) {
             return value.toString();
         }
+        // [Custom Modification]: convert string to byte[]
+        if (value instanceof String && byte[].class == convertType) {
+            log.warn("[getObject with type] Convert string '{}' to byte[]", value);
+            return ((String) value).getBytes();
+        }
         try {
             return convertType.cast(value);
-        } catch (final ClassCastException ignored) {
+        } catch (final ClassCastException e) {
+            // [Custom Modification]: add log
+            log.error("[getObject with type] Convert value failed, value: " + value + ", convertType: " + convertType, e);
             throw new SQLFeatureNotSupportedException("getObject with type");
         }
     }
