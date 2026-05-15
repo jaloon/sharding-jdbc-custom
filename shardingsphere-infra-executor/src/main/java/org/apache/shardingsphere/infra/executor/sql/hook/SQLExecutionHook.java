@@ -46,6 +46,8 @@ public interface SQLExecutionHook {
      * Handle when SQL execution finished failure.
      *
      * @param cause failure cause
+     * @throws SQLException SQL exception
      */
+    // [Custom Modification]: method throws SQLException
     void finishFailure(Exception cause) throws SQLException;
 }

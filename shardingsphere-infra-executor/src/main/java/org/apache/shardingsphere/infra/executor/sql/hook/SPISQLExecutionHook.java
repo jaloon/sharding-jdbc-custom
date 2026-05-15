@@ -45,7 +45,8 @@ public final class SPISQLExecutionHook implements SQLExecutionHook {
             each.finishSuccess();
         }
     }
-    
+
+    // [Custom Modification]: method throws SQLException
     @Override
     public void finishFailure(final Exception cause) throws SQLException {
         for (SQLExecutionHook each : sqlExecutionHooks) {
