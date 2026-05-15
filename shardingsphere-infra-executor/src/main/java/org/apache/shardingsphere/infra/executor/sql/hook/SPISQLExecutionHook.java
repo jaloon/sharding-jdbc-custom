@@ -21,6 +21,7 @@ import org.apache.shardingsphere.infra.database.core.connector.ConnectionPropert
 import org.apache.shardingsphere.infra.executor.sql.context.ExecutionUnit;
 import org.apache.shardingsphere.infra.spi.ShardingSphereServiceLoader;
 
+import java.sql.SQLException;
 import java.util.Collection;
 
 /**
@@ -46,7 +47,7 @@ public final class SPISQLExecutionHook implements SQLExecutionHook {
     }
     
     @Override
-    public void finishFailure(final Exception cause) {
+    public void finishFailure(final Exception cause) throws SQLException {
         for (SQLExecutionHook each : sqlExecutionHooks) {
             each.finishFailure(cause);
         }

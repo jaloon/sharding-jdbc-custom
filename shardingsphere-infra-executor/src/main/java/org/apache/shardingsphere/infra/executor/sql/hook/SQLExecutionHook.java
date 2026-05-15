@@ -20,7 +20,7 @@ package org.apache.shardingsphere.infra.executor.sql.hook;
 import org.apache.shardingsphere.infra.database.core.connector.ConnectionProperties;
 import org.apache.shardingsphere.infra.executor.sql.context.ExecutionUnit;
 
-import java.util.List;
+import java.sql.SQLException;
 
 /**
  * SQL Execution hook.
@@ -47,5 +47,5 @@ public interface SQLExecutionHook {
      *
      * @param cause failure cause
      */
-    void finishFailure(Exception cause);
+    void finishFailure(Exception cause) throws SQLException;
 }
