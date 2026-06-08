@@ -1,8 +1,6 @@
-package org.apache.shardingsphere.driver.jdbc.core.resultset;
+package org.apache.shardingsphere.infra.executor.sql.execute.result.query;
 
 import org.apache.shardingsphere.infra.executor.sql.context.ExecutionUnit;
-import org.apache.shardingsphere.infra.executor.sql.execute.result.query.QueryResult;
-import org.apache.shardingsphere.infra.executor.sql.execute.result.query.QueryResultMetaData;
 
 import java.io.InputStream;
 import java.io.Reader;
